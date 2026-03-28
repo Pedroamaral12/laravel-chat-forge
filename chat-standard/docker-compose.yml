@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: chat-standard-postgres
+    environment:
+      POSTGRES_DB: chat_standard
+      POSTGRES_USER: chat
+      POSTGRES_PASSWORD: chat
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - chat-standard-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: chat-standard-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - chat-standard-network
+
+  api:
+    build:
+      context: ./chat-standard-api
+      dockerfile: Dockerfile
+    container_name: chat-standard-api
+    ports:
+      - "8000:8000"
+      - "8080:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=chat_standard
+      - DB_USERNAME=chat
+      - DB_PASSWORD=chat
+      - BROADCAST_CONNECTION=reverb
+      - QUEUE_CONNECTION=redis
+      - CACHE_STORE=redis
+      - REDIS_CLIENT=phpredis
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=null
+      - REDIS_PORT=6379
+      - REVERB_APP_ID=chat-standard
+      - REVERB_APP_KEY=chat-standard-key
+      - REVERB_APP_SECRET=chat-standard-secret
+      - REVERB_HOST=0.0.0.0
+      - REVERB_PORT=8080
+      - REVERB_SCHEME=http
+    volumes:
+      - ./chat-standard-api:/app
+      - /app/vendor
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - chat-standard-network
+
+  front:
+    build:
+      context: ./chat-standard-front
+      dockerfile: Dockerfile
+    container_name: chat-standard-front
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./chat-standard-front:/app
+      - /app/node_modules
+    networks:
+      - chat-standard-network
+    command: npm run dev -- --host
+
+volumes:
+  postgres_data:
+
+networks:
+  chat-standard-network:
+    driver: bridge
